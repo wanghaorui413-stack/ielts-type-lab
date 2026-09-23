@@ -14,7 +14,7 @@
   <div class="app" id="app">
     <header class="topbar">
       <a class="brand" href="#top" aria-label="TypeAhead 首页"><span class="brand-icon">T<span class="brand-cursor"></span></span><span><strong>TypeAhead</strong><small>雅思写作打字训练</small></span></a>
-      <div class="topbar-right"><span class="topbar-note">把每一次敲击，练成考场底气</span><button class="topbar-control" id="soundButton" type="button" aria-pressed="true" aria-label="关闭键盘音效"><span aria-hidden="true">♫</span> 音效开</button><button class="topbar-control" id="focusButton" type="button" aria-pressed="false">专注模式</button></div>
+      <div class="topbar-right"><span class="topbar-note">把每一次敲击，练成考场底气</span><button class="topbar-control feedback-trigger" id="feedbackButton" type="button">反馈改进</button><button class="topbar-control" id="soundButton" type="button" aria-pressed="true" aria-label="关闭键盘音效"><span aria-hidden="true">♫</span> 音效开</button><button class="topbar-control" id="focusButton" type="button" aria-pressed="false">专注模式</button></div>
     </header>
 
     <main id="top">
@@ -57,10 +57,11 @@
           <div class="history-heading"><h3>最近练习</h3><button class="text-action" id="clearHistoryButton" type="button">清除记录</button></div><div id="historyList" class="history-list"></div>
         </aside>
       </div>
-      <footer><span>TypeAhead · 独立练习工具，非 IELTS 官方产品</span><span>Task 1 / Task 2 时间与最低词数参照 <a href="https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-writing" target="_blank" rel="noopener noreferrer">IELTS 官方说明</a></span></footer>
+      <footer><span>TypeAhead · 独立练习工具，非 IELTS 官方产品</span><span>仅统计每日浏览和功能点击次数；作文不会上传。反馈内容仅用于改进产品。</span><span>Task 1 / Task 2 时间与最低词数参照 <a href="https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-writing" target="_blank" rel="noopener noreferrer">IELTS 官方说明</a></span></footer>
     </main>
   </div>
 
   <dialog id="resultDialog" class="result-dialog"><form method="dialog"><button class="dialog-close" aria-label="关闭" value="close">×</button><p class="eyebrow" id="resultEyebrow">SESSION COMPLETE</p><h2 id="resultTitle">这一轮，练得很扎实。</h2><p id="resultSummary"></p><div class="result-metrics" id="resultMetrics"></div><p class="result-note" id="resultNote"></p><div class="dialog-actions"><button class="secondary" value="close">返回练习</button><button class="primary" id="downloadResultButton" value="download">导出文本</button><button class="primary" id="nextLevelButton" type="button" hidden>挑战下一关</button></div></form></dialog>
+  <dialog id="feedbackDialog" class="feedback-dialog" aria-labelledby="feedbackTitle"><form id="feedbackForm"><button class="dialog-close" id="feedbackCloseButton" type="button" aria-label="关闭反馈窗口">×</button><p class="eyebrow">HELP US IMPROVE</p><h2 id="feedbackTitle">告诉我们哪里可以改进</h2><p class="feedback-intro">遇到问题、想到新功能，都可以直接发给我们。</p><label class="field-name" for="feedbackCategory">反馈类型</label><select id="feedbackCategory" name="category"><option value="bug">使用问题</option><option value="idea">功能建议</option><option value="other">其他反馈</option></select><label class="field-name" for="feedbackMessage">具体内容</label><textarea id="feedbackMessage" name="message" minlength="10" maxlength="1000" required placeholder="例如：闯关时希望看到每个字母的错误提示……"></textarea><input class="honeypot" id="feedbackWebsite" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><p class="feedback-privacy">请勿填写姓名、联系方式或作文原文。反馈将保存用于产品改进。</p><p class="feedback-status" id="feedbackStatus" role="status" aria-live="polite"></p><div class="dialog-actions"><button class="secondary" id="feedbackCancelButton" type="button">取消</button><button class="primary" id="feedbackSubmitButton" type="submit">提交反馈</button></div></form></dialog>
 </body>
 </html>

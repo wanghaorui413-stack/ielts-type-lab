@@ -1,3 +1,6 @@
 .sites-runtime/
 .sites-checkout/
 *.tar.gz
+node_modules/
+dist/server/
+dist/.openai/

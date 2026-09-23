@@ -28,3 +28,20 @@ main{max-width:1610px;padding-inline:clamp(18px,3.5vw,60px)}
 @media(max-width:1150px){.workspace-layout{grid-template-columns:225px minmax(0,1fr)}.insights-panel{grid-column:1/-1}.page-intro{padding:25px 28px}}
 @media(max-width:760px){.topbar{height:65px}.topbar-note{display:none}.page-intro{display:none}.mode-switch{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:14px}.mode{min-height:67px;gap:8px;padding:10px}.mode-number{width:26px;height:26px;font-size:10px}.mode strong{font-size:12px}.mode small{display:none}.workspace-layout{display:flex;flex-direction:column}.setup-panel,.practice-panel,.insights-panel{width:100%}.setup-panel{display:block}.setup-panel .setup-divider{display:block}.setup-panel #essaySetup,.setup-panel #copySetup{grid-row:auto}.insights-panel{display:block}.app[data-mode="game"] .practice-panel,.app[data-mode="copy"] .practice-panel{order:0}.app[data-mode="game"] .setup-panel,.app[data-mode="copy"] .setup-panel{order:1}.app[data-mode="game"] .insights-panel,.app[data-mode="copy"] .insights-panel{order:2}.focus-mode .mode-switch{margin-top:16px}}
 @media(max-width:520px){main{padding-inline:12px}.topbar{padding-inline:12px}.topbar-control{padding:7px 8px;font-size:11px}.topbar-right{gap:5px}.brand small{font-size:9px}.brand strong{font-size:16px}.brand-icon{width:36px;height:36px}.page-intro{padding:21px 19px}.page-intro h1{font-size:28px}.page-intro .intro-subline{font-size:12px}.mode strong{font-size:11px}.mode-number{display:none}.mode{justify-content:center;text-align:center;padding:9px 5px;min-height:48px}.mode.active::after{left:10px;right:10px}.setup-panel,.practice-panel,.insights-panel{padding:18px}.game-challenge{padding:14px}.game-challenge p{font-size:10px}.practice-panel textarea{font-size:16px}.result-metrics{gap:5px}.result-metrics div{padding:10px 7px}.result-metrics strong{font-size:20px}}
+
+.feedback-trigger{border-color:#b8f26c70;color:#d8f8ad;background:#b8f26c12}
+.feedback-trigger:hover{background:#b8f26c25}
+.feedback-dialog{border:0;border-radius:21px;width:min(440px,calc(100% - 28px));padding:27px 30px 25px;color:#1b2c48;box-shadow:0 30px 90px #0b1e3f70}
+.feedback-dialog::backdrop{background:#0c1a32a3}
+.feedback-dialog form{position:relative}
+.feedback-dialog h2{font-size:25px;line-height:1.28;margin:12px 22px 8px 0}
+.feedback-dialog .feedback-intro{font-size:14px;color:#6e7f98;line-height:1.6;margin:0 0 18px}
+.feedback-dialog .field-name{font-size:14px;margin:17px 0 8px}
+.feedback-dialog textarea{height:140px;min-height:110px;resize:vertical;padding:13px 14px;font-size:15px;line-height:1.6}
+.feedback-dialog .feedback-privacy{font-size:12px;line-height:1.6;color:#7c8ba0;margin:11px 0 0}
+.feedback-status{min-height:22px;font-size:13px;line-height:1.5;color:#315ebd;margin:11px 0 0}
+.feedback-dialog .dialog-actions{margin-top:15px}
+.feedback-dialog .dialog-actions .primary{min-width:105px}
+.honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important}
+footer{flex-wrap:wrap}
+@media(max-width:520px){.topbar{height:auto;min-height:65px;flex-wrap:wrap;gap:8px;padding-block:9px}.topbar-right{width:100%;justify-content:space-between}.topbar-control{flex:1}.topbar-note{display:none}.feedback-dialog{padding:25px 20px}}

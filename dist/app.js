@@ -18,6 +18,10 @@ const levels = [
 ];
 const DURATION = { task1: 20 * 60, task2: 40 * 60, copy: 5 * 60 };
 const STORAGE = 'typeahead-ielts-v1';
+function track(event){
+  if(!['page_view','mode_essay','mode_copy','mode_game','practice_start','practice_complete','feedback_open','feedback_submit'].includes(event))return;
+  try { void fetch('/api/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event}),keepalive:true}).catch(()=>{}); } catch { /* Practice remains available offline. */ }
+}
 const $ = id => document.getElementById(id);
 const el = Object.fromEntries(['app','essayTab','copyTab','gameTab','essaySetup','copySetup','gameSetup','levelList','task1Button','task2Button','promptSelect','drillSelect','randomButton','timer','timerPreset','startButton','resetButton','saveNote','exerciseLabel','practiceTitle','goalPill','gameChallenge','challengeBadge','challengeTitle','challengeDescription','promptCard','promptTopic','promptText','taskData','copyReference','referenceLabel','copyProgressLabel','referenceText','editorLabel','saveStatus','writingInput','editorHint','clearButton','exportButton','finishButton','primaryStatLabel','wordCount','wordProgress','progressText','speedLabel','speedValue','speedUnit','secondStatLabel','secondStatValue','secondStatUnit','paceTitle','paceDescription','historyList','clearHistoryButton','focusButton','soundButton','resultDialog','resultEyebrow','resultTitle','resultSummary','resultMetrics','resultNote','downloadResultButton','nextLevelButton'].map(id => [id,$(id)]));
 function readJson(key, fallback){ try { const value=JSON.parse(localStorage.getItem(key)); return value ?? fallback; } catch { return fallback; } }
@@ -98,10 +102,11 @@ function renderStats(){
 }
 function stopTimer(){ if(state.tickId){clearInterval(state.tickId);state.tickId=null;} state.running=false; }
 function tick(){ state.remaining=Math.max(0,Math.ceil((state.deadline-Date.now())/1000)); renderTimer(); renderStats(); if(state.remaining===0){ stopTimer(); state.finished=true; el.writingInput.disabled=false; finishPractice(true); } }
-function startTimer(){ if(state.running){if(state.mode==='game')return;tick(); stopTimer(); renderTimer(); setStatus('计时已暂停'); return; } if(state.finished&&state.mode==='game'){el.writingInput.value='';resetTimer();renderReference();} if(state.remaining===0) resetTimer(); state.started=true; state.finished=false; state.running=true; state.deadline=Date.now()+state.remaining*1000; state.tickId=setInterval(tick,300); renderTimer(); renderStats(); el.writingInput.focus(); setStatus('正在计时'); }
+function startTimer(){ if(state.running){if(state.mode==='game')return;tick(); stopTimer(); renderTimer(); setStatus('计时已暂停'); return; } if(state.finished&&state.mode==='game'){el.writingInput.value='';resetTimer();renderReference();} if(state.remaining===0) resetTimer(); if(!state.started)track('practice_start'); state.started=true; state.finished=false; state.running=true; state.deadline=Date.now()+state.remaining*1000; state.tickId=setInterval(tick,300); renderTimer(); renderStats(); el.writingInput.focus(); setStatus('正在计时'); }
 function resetTimer(){ stopTimer(); state.remaining=duration(); state.started=false; state.finished=false; state.baselineUnits=units(); renderTimer(); renderStats(); setStatus('计时已重置'); }
 function switchExercise({mode=state.mode,task=state.task,promptId=state.promptId,drillId=state.drillId,levelId=state.levelId}){
   const requestedLevel=levels.find(l=>l.id===levelId);if(mode==='game'&&(!requestedLevel||requestedLevel.number>state.progress.unlocked))return;
+  if(mode!==state.mode)track(`mode_${mode}`);
   state.mode=mode; state.task=task; state.promptId=promptId; state.drillId=drillId;state.levelId=levelId;
   if(!prompts.some(p=>p.id===state.promptId&&p.task===state.task)) state.promptId=prompts.find(p=>p.task===state.task).id;
   if(!drills.some(d=>d.id===state.drillId)) state.drillId=drills[0].id;
@@ -114,7 +119,7 @@ function finishPractice(auto=false){
   if(state.finished&&!auto)return;
   stopTimer(); const used=elapsed(),essay=state.mode==='essay',game=state.mode==='game',item=game?currentLevel():essay?currentPrompt():currentDrill(),count=game?el.writingInput.value.length:essay?wordCount(text):correctChars(),v=speed(),a=essay?null:accuracy();
   const passed=game&&count>=item.text.length&&a>=item.minAccuracy&&v>=item.minWpm&&state.remaining>0;
-  state.finished=true; el.writingInput.disabled=false; renderTimer();
+  state.finished=true; el.writingInput.disabled=false; renderTimer(); track('practice_complete');
   const record={date:new Date().toISOString(),mode:state.mode,label:game?`第${item.number}关 · ${item.title}`:item.label,count,accuracy:a,speed:v,elapsed:used,passed}; state.history.unshift(record);state.history=state.history.slice(0,30);writeJson(STORAGE+':history',state.history);renderHistory();
   if(game&&passed){state.progress.unlocked=Math.min(levels.length,Math.max(state.progress.unlocked,item.number+1));const previous=state.progress.best[item.id];if(!previous||v>previous.speed)state.progress.best[item.id]={speed:v,accuracy:a,elapsed:used};writeJson(STORAGE+':levels',state.progress);renderLevels();}
   el.resultEyebrow.textContent=game?(passed?'LEVEL CLEARED':'TRY AGAIN'):'SESSION COMPLETE';
@@ -160,6 +165,27 @@ el.soundButton.addEventListener('click',()=>{state.soundOn=!state.soundOn;writeJ
 el.writingInput.addEventListener('keydown',playKeySound);
 if(!levels.some(l=>l.id===state.levelId)||currentLevel().number>state.progress.unlocked)state.levelId=levels[state.progress.unlocked-1].id;
 populateSelects();state.remaining=duration();loadDraft();state.baselineUnits=units();renderMode();renderTimer();renderHistory();renderSound();
+track('page_view');
+
+const feedbackDialog=$('feedbackDialog'),feedbackForm=$('feedbackForm'),feedbackStatus=$('feedbackStatus'),feedbackSubmitButton=$('feedbackSubmitButton');
+function closeFeedback(){feedbackDialog.close();}
+$('feedbackButton').addEventListener('click',()=>{feedbackStatus.textContent='';feedbackDialog.showModal();$('feedbackMessage').focus();track('feedback_open');});
+$('feedbackCloseButton').addEventListener('click',closeFeedback);
+$('feedbackCancelButton').addEventListener('click',closeFeedback);
+feedbackDialog.addEventListener('click',event=>{if(event.target===feedbackDialog)closeFeedback();});
+feedbackForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const message=$('feedbackMessage').value.trim(),category=$('feedbackCategory').value,website=$('feedbackWebsite').value;
+  if(message.length<10){feedbackStatus.textContent='请至少写 10 个字，方便我们理解问题。';return;}
+  feedbackSubmitButton.disabled=true;feedbackStatus.textContent='正在提交…';
+  try{
+    const response=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({category,message,website})});
+    if(!response.ok)throw Error('submit failed');
+    feedbackForm.reset();feedbackStatus.textContent='提交成功，谢谢你的建议！';track('feedback_submit');
+    setTimeout(()=>{if(feedbackDialog.open)closeFeedback();},1600);
+  }catch{feedbackStatus.textContent='提交失败，请稍后重试。你的内容还在，可以再次提交。';}
+  finally{feedbackSubmitButton.disabled=false;}
+});
 
 // Browsers that support WebMCP can expose the same practice setup to an assistant.
 if (document.modelContext?.registerTool) {
