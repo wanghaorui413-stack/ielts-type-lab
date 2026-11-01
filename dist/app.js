@@ -40,8 +40,27 @@ function draftKey(){ return STORAGE + ':draft:' + state.promptId; }
 function elapsed(){ return duration() - state.remaining; }
 function formatTime(seconds){ const m=Math.floor(Math.max(0,seconds)/60); const s=Math.max(0,seconds)%60; return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 function wordCount(text){ return (text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || []).length; }
-function accuracy(){ const text=el.writingInput.value; if(!text.length) return 100; const ref=currentReference(); let correct=0; for(let i=0;i<text.length;i++) if(text[i]===ref[i]) correct++; return Math.round(correct/text.length*100); }
-function correctChars(){ const text=el.writingInput.value,ref=currentReference(); let n=0; for(let i=0;i<text.length;i++) if(text[i]===ref[i]) n++; return n; }
+// Aligns the input with the reference by edit distance, so a missed or extra character is flagged once instead of shifting everything after it.
+let alignCache={typed:null,ref:null,result:null};
+function alignTyping(){
+  const typed=el.writingInput.value,ref=currentReference(); if(alignCache.typed===typed&&alignCache.ref===ref) return alignCache.result;
+  const t=typed.length,cols=Math.min(ref.length,t+50)+1,d=new Uint16Array((t+1)*cols),cost=(i,j)=>typed[i-1]===ref[j-1]?0:1;
+  for(let j=0;j<cols;j++) d[j]=j;
+  for(let i=1;i<=t;i++){ d[i*cols]=i; for(let j=1;j<cols;j++) d[i*cols+j]=Math.min(d[(i-1)*cols+j-1]+cost(i,j),d[(i-1)*cols+j]+1,d[i*cols+j-1]+1); }
+  let end=0; for(let j=1;j<cols;j++) if(d[t*cols+j]<=d[t*cols+end]) end=j;
+  const status=new Array(ref.length).fill('pending'); let i=t,j=end,correct=0,errors=0;
+  while(i>0||j>0){
+    const here=d[i*cols+j];
+    // Skips are tried before matches so that, among equally good alignments, extra or missing characters sit as late as possible.
+    if(i>0&&here===d[(i-1)*cols+j]+1){ status[Math.max(0,j-1)]='incorrect'; errors++; i--; }
+    else if(j>0&&here===d[i*cols+j-1]+1){ status[j-1]='incorrect'; errors++; j--; }
+    else { const ok=!cost(i,j); status[j-1]=ok&&status[j-1]!=='incorrect'?'correct':'incorrect'; ok?correct++:errors++; i--; j--; }
+  }
+  alignCache={typed,ref,result:{status,correct,errors,covered:end}}; return alignCache.result;
+}
+function accuracy(){ const {correct,errors}=alignTyping(); return correct+errors?Math.round(correct/(correct+errors)*100):100; }
+function correctChars(){ return alignTyping().correct; }
+function coveredChars(){ return alignTyping().covered; }
 function units(){ return state.mode === 'essay' ? wordCount(el.writingInput.value) : correctChars(); }
 function speed(){ const minutes=elapsed()/60; if(minutes < 0.08) return 0; const newUnits=Math.max(0,units()-state.baselineUnits); return Math.round(state.mode === 'essay' ? newUnits/minutes : newUnits/5/minutes); }
 function setStatus(message){ el.saveStatus.textContent=message; }
@@ -52,7 +71,7 @@ function populateSelects(){
   el.drillSelect.replaceChildren(); drills.forEach(d=>{ const o=document.createElement('option'); o.value=d.id; o.textContent=d.label; el.drillSelect.append(o); }); el.drillSelect.value=currentDrill().id;
 }
 function renderTable(data){ el.taskData.replaceChildren(); if(!data){ el.taskData.hidden=true; return; } const table=document.createElement('table'); const head=document.createElement('thead'); const row=document.createElement('tr'); data.headings.forEach(value=>{ const cell=document.createElement('th'); cell.textContent=value; row.append(cell); }); head.append(row); table.append(head); const body=document.createElement('tbody'); data.rows.forEach(values=>{ const tr=document.createElement('tr'); values.forEach(value=>{ const td=document.createElement('td'); td.textContent=value; tr.append(td); }); body.append(tr); }); table.append(body); el.taskData.append(table); el.taskData.hidden=false; }
-function renderReference(){ const ref=currentReference(),typed=el.writingInput.value; el.referenceText.replaceChildren(); let buffer='',status=null; const flush=()=>{ if(!buffer) return; const span=document.createElement('span'); span.className=status; span.textContent=buffer; el.referenceText.append(span); buffer=''; }; for(let i=0;i<ref.length;i++){ const next=i>=typed.length?'pending':typed[i]===ref[i]?'correct':'incorrect'; if(next!==status){flush();status=next;} buffer+=ref[i]; } flush(); el.copyProgressLabel.textContent=`${Math.min(100,Math.round(typed.length/ref.length*100))}% 完成`; }
+function renderReference(){ const ref=currentReference(),aligned=alignTyping(); el.referenceText.replaceChildren(); let buffer='',status=null; const flush=()=>{ if(!buffer) return; const span=document.createElement('span'); span.className=status; span.textContent=buffer; el.referenceText.append(span); buffer=''; }; for(let i=0;i<ref.length;i++){ const next=aligned.status[i]; if(next!==status){flush();status=next;} buffer+=ref[i]; } flush(); el.copyProgressLabel.textContent=`${Math.min(100,Math.round(aligned.covered/ref.length*100))}% 完成`; }
 function loadDraft(){ el.writingInput.value=state.mode==='essay'?(localStorage.getItem(draftKey())||''):''; setStatus(state.mode==='essay'&&el.writingInput.value?'已恢复本机草稿':'准备就绪'); }
 function renderLevels(){
   el.levelList.replaceChildren();
@@ -89,7 +108,7 @@ function renderMode(){
 }
 function renderTimer(){ const game=state.mode==='game';el.timer.textContent=formatTime(state.remaining); el.timer.classList.toggle('urgent',state.remaining<=60);el.startButton.disabled=game&&state.running; el.startButton.textContent=game?(state.running?'闯关中':state.finished?'再挑战':'开始挑战'):state.running?'暂停计时':state.started?'继续计时':'开始计时'; el.writingInput.disabled=state.started&&!state.running&&!state.finished&&state.remaining>0; }
 function renderStats(){
-  const text=el.writingInput.value,essay=state.mode==='essay',game=state.mode==='game',count=game?text.length:essay?wordCount(text):correctChars(),target=goal(),pct=Math.min(100,count/target*100);
+  const text=el.writingInput.value,essay=state.mode==='essay',game=state.mode==='game',count=game?coveredChars():essay?wordCount(text):correctChars(),target=goal(),pct=Math.min(100,count/target*100);
   el.wordCount.textContent=count; el.wordProgress.style.width=`${pct}%`;
   el.progressText.textContent=game?`已输入 ${Math.min(count,target)} / ${target} 个字符`:essay?(count>=target?'已达到最低词数':`距离目标还差 ${target-count} 词`):`${Math.max(0,target-count)} 个正确字符待完成`;
   el.speedValue.textContent=elapsed()<5?'—':String(speed());
@@ -117,7 +136,7 @@ function download(){ const text=el.writingInput.value.trim(); if(!text){setStatu
 function finishPractice(auto=false){
   const text=el.writingInput.value.trim(); if(!text){if(!auto)setStatus('请先输入内容');if(!auto||state.mode!=='game')return;}
   if(state.finished&&!auto)return;
-  stopTimer(); const used=elapsed(),essay=state.mode==='essay',game=state.mode==='game',item=game?currentLevel():essay?currentPrompt():currentDrill(),count=game?el.writingInput.value.length:essay?wordCount(text):correctChars(),v=speed(),a=essay?null:accuracy();
+  stopTimer(); const used=elapsed(),essay=state.mode==='essay',game=state.mode==='game',item=game?currentLevel():essay?currentPrompt():currentDrill(),count=game?coveredChars():essay?wordCount(text):correctChars(),v=speed(),a=essay?null:accuracy();
   const passed=game&&count>=item.text.length&&a>=item.minAccuracy&&v>=item.minWpm&&state.remaining>0;
   state.finished=true; el.writingInput.disabled=false; renderTimer(); track('practice_complete');
   const record={date:new Date().toISOString(),mode:state.mode,label:game?`第${item.number}关 · ${item.title}`:item.label,count,accuracy:a,speed:v,elapsed:used,passed}; state.history.unshift(record);state.history=state.history.slice(0,30);writeJson(STORAGE+':history',state.history);renderHistory();
@@ -139,7 +158,7 @@ el.promptSelect.addEventListener('change',()=>switchExercise({promptId:el.prompt
 el.drillSelect.addEventListener('change',()=>switchExercise({drillId:el.drillSelect.value}));
 el.randomButton.addEventListener('click',()=>{const choices=prompts.filter(p=>p.task===state.task&&p.id!==state.promptId);switchExercise({promptId:choices[Math.floor(Math.random()*choices.length)].id});});
 el.startButton.addEventListener('click',startTimer);el.resetButton.addEventListener('click',()=>{if(state.mode==='game'){el.writingInput.value='';renderReference();}resetTimer();});
-el.writingInput.addEventListener('input',()=>{state.finished=false;if(!state.started)startTimer(); if(state.mode==='essay'){const okay=writeJson(draftKey(),el.writingInput.value);setStatus(okay?'已自动保存到本机':'浏览器存储不可用，请及时导出');}else{renderReference();setStatus(state.mode==='game'?'正在闯关':'正在跟打');if((state.mode==='copy'&&el.writingInput.value===currentReference())||(state.mode==='game'&&el.writingInput.value.length>=currentReference().length)){finishPractice();}}renderStats();});
+el.writingInput.addEventListener('input',()=>{state.finished=false;if(!state.started)startTimer(); if(state.mode==='essay'){const okay=writeJson(draftKey(),el.writingInput.value);setStatus(okay?'已自动保存到本机':'浏览器存储不可用，请及时导出');}else{renderReference();setStatus(state.mode==='game'?'正在闯关':'正在跟打');if((state.mode==='copy'&&el.writingInput.value===currentReference())||(state.mode==='game'&&coveredChars()>=currentReference().length)){finishPractice();}}renderStats();});
 el.writingInput.addEventListener('paste',event=>{if(state.mode!=='essay'){event.preventDefault();setStatus('打字练习不能粘贴，请使用键盘输入');}});
 el.writingInput.addEventListener('drop',event=>{if(state.mode!=='essay'){event.preventDefault();setStatus('打字练习不能拖入文字');}});
 el.clearButton.addEventListener('click',()=>{const question=state.mode==='game'?'重新挑战本关？':state.mode==='copy'?'重新开始这段跟打？':'清空当前作文草稿？';if(el.writingInput.value&&!window.confirm(question))return;el.writingInput.value='';if(state.mode==='essay')writeJson(draftKey(),'');resetTimer();if(state.mode!=='essay')renderReference();renderStats();el.writingInput.focus();setStatus('内容已清空');});
